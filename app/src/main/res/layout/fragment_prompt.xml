@@ -161,22 +161,6 @@
 
     </LinearLayout>
 
-    <!-- التقدير الفوري أثناء الكتابة -->
-    <TextView
-        android:id="@+id/text_live_estimate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="8dp"
-        android:background="@drawable/bg_live_pill"
-        android:gravity="center"
-        android:padding="10dp"
-        android:textColor="@color/bosla_gold"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
-
     <!-- زر البناء — يظهر بعد رد البوت بالتقدير -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_build"
@@ -210,6 +194,7 @@
             android:imeOptions="actionSend"
             android:importantForAutofill="no"
             android:inputType="textMultiLine"
+            android:maxLength="2000"
             android:maxLines="4"
             android:padding="14dp"
             android:textColor="@color/bosla_navy"

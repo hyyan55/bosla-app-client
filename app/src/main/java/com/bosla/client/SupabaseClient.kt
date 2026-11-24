@@ -2,8 +2,11 @@ package com.bosla.client
 
 import android.os.Handler
 import android.os.Looper
+import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,6 +42,14 @@ object SupabaseClient {
         val pointsMedium: Int,
         val pointsComplex: Int
     )
+    data class ChatEstimate(
+        val complexity: Estimate.Complexity,
+        val points: Int,
+        val priceSdg: Int,
+        val features: List<String>,
+        val reasoning: String
+    )
+    data class ChatResult(val reply: String, val estimate: ChatEstimate?)
 
     // مهل أطول: شبكات الجوال البطيئة كانت تقطع الطلب بعد 10 ثوانٍ (خطأ «تعذّر الاتصال»)
     private val http = OkHttpClient.Builder()
@@ -248,6 +259,59 @@ object SupabaseClient {
             onError = onError
         )
     }
+
+    // البوت الذكي: تحليل الوصف عبر Edge Function `chat` (Gemini) —
+    // لا يوجد أي مفتاح Gemini في التطبيق؛ الدالة في Supabase تملكه.
+    // الدالة تتطلب جلسة مستخدم صالحة (تتحقق عبر auth.getUser())،
+    // فالـ Authorization هو توكن دخول المستخدم لا المفتاح العام.
+    // الأخطاء (غير 200، انقطاع، مهلة، رد فارغ) تُرمى كاستثناءات.
+    suspend fun chat(message: String, history: List<Pair<String, String>>): ChatResult =
+        withContext(Dispatchers.IO) {
+            val token = accessToken ?: throw IllegalStateException("NO_SESSION")
+            val historyJson = JSONArray()
+            for ((role, text) in history.takeLast(10)) {
+                historyJson.put(JSONObject().put("role", role).put("text", text))
+            }
+            val bodyJson = JSONObject()
+                .put("message", message)
+                .put("history", historyJson)
+                .toString()
+            val request = Request.Builder()
+                .url("$supabaseUrl/functions/v1/chat")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $token")
+                .post(bodyJson.toRequestBody(jsonType))
+                .build()
+            val response = http.newCall(request).execute()
+            response.use {
+                val text = it.body?.string().orEmpty()
+                if (!it.isSuccessful) throw IOException("HTTP_${it.code}")
+                val obj = JSONObject(text)
+                val reply = obj.optString("reply", "").trim()
+                if (reply.isBlank()) throw IOException("EMPTY_REPLY")
+                val estObj = obj.optJSONObject("estimate")
+                val estimate = if (estObj != null) {
+                    val complexity = Estimate.fromString(estObj.optString("complexity", ""))
+                        ?: throw IOException("BAD_COMPLEXITY")
+                    val features = ArrayList<String>()
+                    val arr = estObj.optJSONArray("features")
+                    if (arr != null) {
+                        for (i in 0 until arr.length()) {
+                            val f = arr.optString(i, "").trim()
+                            if (f.isNotEmpty()) features.add(f)
+                        }
+                    }
+                    ChatEstimate(
+                        complexity = complexity,
+                        points = estObj.optInt("points", 0),
+                        priceSdg = estObj.optInt("price_sdg", 0),
+                        features = features,
+                        reasoning = estObj.optString("reasoning", "").trim()
+                    )
+                } else null
+                ChatResult(reply, estimate)
+            }
+        }
 
     // إعادة إرسال رابط التفعيل لحساب أُنشئ ولم يُفعَّل بعد — POST /auth/v1/resend
     // الرابط يعيد المستخدم إلى التطبيق عبر boslaapp://verified

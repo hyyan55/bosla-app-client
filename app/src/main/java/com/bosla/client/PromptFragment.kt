@@ -3,8 +3,6 @@ package com.bosla.client
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -16,11 +14,16 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.bosla.client.databinding.FragmentPromptBinding
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
- * تبويب البوت — وكيل ذكاء اصطناعي حي:
- * أفاتار البوت في كل رد، مؤشر كتابة متحرك مع خطوات تفكير، حركات دخول للرسائل،
- * اقتراحات سريعة، بطاقة تقدير، وتقدير فوري أثناء الكتابة.
+ * تبويب البوت — وكيل ذكاء اصطناعي حقيقي:
+ * التحليل والتقدير يأتيان من Gemini عبر Edge Function `chat` في Supabase
+ * (لا ردود مسبقة ولا تقدير محلي). أفاتار البوت في كل رد، مؤشر كتابة متحرك
+ * مع خطوات تفكير، حركات دخول للرسائل، اقتراحات سريعة، بطاقة تقدير مضغوطة.
  * الأسعار تُقرأ من إعدادات Supabase (سعر النقطة وشرائح النقاط).
  */
 class PromptFragment : Fragment() {
@@ -36,12 +39,15 @@ class PromptFragment : Fragment() {
     private var greeted = false
     private var isThinking = false
     private val handler = Handler(Looper.getMainLooper())
+    private val chatScope = MainScope()
+    private val chatHistory = ArrayList<Pair<String, String>>()
 
     // مؤشر الكتابة المتحرك
     private var typingRow: View? = null
     private var typingText: TextView? = null
     private var typingStep = 0
     private lateinit var thinkingSteps: Array<String>
+    private val stepRunnable = Runnable { typingStep = 1 }
     private val dotsRunnable = object : Runnable {
         private var dots = 0
         override fun run() {
@@ -78,13 +84,6 @@ class PromptFragment : Fragment() {
             },
             onError = {}
         )
-        binding.editPrompt.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                updateLiveEstimate(s?.toString().orEmpty())
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
         binding.editPrompt.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 sendMessage()
@@ -110,27 +109,8 @@ class PromptFragment : Fragment() {
     private fun greetOnce() {
         if (greeted) return
         greeted = true
-        addBotMessage(getString(R.string.chat_greeting, settings.pricePerPoint))
+        addBotMessage(getString(R.string.chat_greeting))
         scrollToBottom()
-    }
-
-    /** التقدير الفوري أثناء الكتابة — بلا انتظار زر. */
-    private fun updateLiveEstimate(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isBlank()) {
-            binding.textLiveEstimate.visibility = View.GONE
-            return
-        }
-        val complexity = Estimate.estimate(trimmed)
-        val points = Estimate.pointsFor(complexity, settings)
-        val price = points * settings.pricePerPoint
-        binding.textLiveEstimate.text = getString(
-            R.string.chat_live_estimate,
-            getString(Estimate.labelFor(complexity)),
-            points,
-            formatNumber(price)
-        )
-        binding.textLiveEstimate.visibility = View.VISIBLE
     }
 
     private fun sendMessage() {
@@ -139,27 +119,73 @@ class PromptFragment : Fragment() {
 
     private fun sendMessage(text: String) {
         if (text.isBlank() || isThinking) return
+        // دالة المحادثة تتطلب جلسة مستخدم صالحة — بلا جلسة لا نتصل أبداً
+        if (SupabaseClient.accessToken.isNullOrBlank()) {
+            addBotMessage(getString(R.string.chat_ai_unavailable))
+            scrollToBottom()
+            return
+        }
         isThinking = true
         lastDescription = text
         addUserMessage(text)
         binding.editPrompt.text?.clear()
-        binding.textLiveEstimate.visibility = View.GONE
         binding.buttonBuild.visibility = View.GONE
         binding.layoutSuggestions.visibility = View.GONE
-        val complexity = Estimate.estimate(text)
-        val points = Estimate.pointsFor(complexity, settings)
-        lastComplexity = complexity
-        lastPoints = points
         showTyping()
         scrollToBottom()
-        handler.postDelayed({ typingStep = 1 }, 700)
-        handler.postDelayed({
-            stopTyping()
-            showEstimateCard(complexity, points)
-            binding.buttonBuild.visibility = View.VISIBLE
-            isThinking = false
-            scrollToBottom()
-        }, 1400)
+        val historySnapshot = chatHistory.takeLast(10).toList()
+        chatHistory.add("user" to text)
+        trimHistory()
+        chatScope.launch {
+            try {
+                val result = SupabaseClient.chat(text, historySnapshot)
+                stopTyping()
+                addBotMessage(buildBotText(result))
+                chatHistory.add("bot" to result.reply)
+                trimHistory()
+                val estimate = result.estimate
+                if (estimate != null) {
+                    lastComplexity = estimate.complexity
+                    lastPoints = estimate.points
+                    showEstimateCard(estimate)
+                    binding.buttonBuild.visibility = View.VISIBLE
+                } else {
+                    lastComplexity = null
+                    lastPoints = 0
+                }
+                isThinking = false
+                scrollToBottom()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                stopTyping()
+                addBotMessage(getString(R.string.chat_ai_unavailable))
+                isThinking = false
+                scrollToBottom()
+            }
+        }
+    }
+
+    private fun trimHistory() {
+        while (chatHistory.size > 10) chatHistory.removeAt(0)
+    }
+
+    /** نص رد البوت: الرد + أهم المزايا + سبب التقدير (النقاط والسعر في البطاقة فقط). */
+    private fun buildBotText(result: SupabaseClient.ChatResult): String {
+        val sb = StringBuilder(result.reply)
+        val estimate = result.estimate
+        if (estimate != null) {
+            if (estimate.features.isNotEmpty()) {
+                sb.append("\n\n").append(getString(R.string.chat_features_title))
+                for (feature in estimate.features) {
+                    sb.append("\n• ").append(feature)
+                }
+            }
+            if (estimate.reasoning.isNotBlank()) {
+                sb.append("\n\n").append(getString(R.string.chat_reasoning, estimate.reasoning))
+            }
+        }
+        return sb.toString()
     }
 
     private fun build() {
@@ -214,7 +240,7 @@ class PromptFragment : Fragment() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
-        val marginV = (4 * density).toInt()
+        val marginV = (3 * density).toInt()
         rowParams.setMargins(0, marginV, 0, marginV)
         row.layoutParams = rowParams
         row.addView(bubble)
@@ -256,7 +282,7 @@ class PromptFragment : Fragment() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
-        val marginV = (4 * density).toInt()
+        val marginV = (3 * density).toInt()
         rowParams.setMargins(0, marginV, 0, marginV)
         row.layoutParams = rowParams
         binding.layoutChat.addView(row)
@@ -268,9 +294,9 @@ class PromptFragment : Fragment() {
         val density = resources.displayMetrics.density
         val tv = TextView(requireContext())
         tv.text = text
-        tv.textSize = 16f
-        val padH = (16 * density).toInt()
-        val padV = (12 * density).toInt()
+        tv.textSize = 15f
+        val padH = (14 * density).toInt()
+        val padV = (8 * density).toInt()
         tv.setPadding(padH, padV, padH, padV)
         if (isUser) {
             tv.setBackgroundResource(R.drawable.bg_bubble_user)
@@ -282,16 +308,15 @@ class PromptFragment : Fragment() {
         return tv
     }
 
-    /** بطاقة التقدير: التعقيد + النقاط + السعر. */
-    private fun showEstimateCard(complexity: Estimate.Complexity, points: Int) {
+    /** بطاقة التقدير المضغوطة: التعقيد + النقاط + السعر (من تحليل الذكاء الاصطناعي). */
+    private fun showEstimateCard(estimate: SupabaseClient.ChatEstimate) {
         val card = layoutInflater.inflate(R.layout.item_estimate_card, binding.layoutChat, false)
         val complexityView = card.findViewById<TextView>(R.id.text_estimate_complexity)
         val pointsView = card.findViewById<TextView>(R.id.text_estimate_points)
         val priceView = card.findViewById<TextView>(R.id.text_estimate_price)
-        complexityView.text = getString(Estimate.labelFor(complexity))
-        pointsView.text = getString(R.string.chat_estimate_points, points)
-        val price = points * settings.pricePerPoint
-        priceView.text = getString(R.string.chat_estimate_price, formatNumber(price))
+        complexityView.text = getString(Estimate.labelFor(estimate.complexity))
+        pointsView.text = getString(R.string.chat_estimate_points, estimate.points)
+        priceView.text = getString(R.string.chat_estimate_price, formatNumber(estimate.priceSdg))
         binding.layoutChat.addView(card)
         animateIn(card)
     }
@@ -304,10 +329,12 @@ class PromptFragment : Fragment() {
         typingText = bubble
         typingRow = addBotRow(bubble)
         handler.post(dotsRunnable)
+        handler.postDelayed(stepRunnable, 700)
     }
 
     private fun stopTyping() {
         handler.removeCallbacks(dotsRunnable)
+        handler.removeCallbacks(stepRunnable)
         typingRow?.let { binding.layoutChat.removeView(it) }
         typingRow = null
         typingText = null
@@ -326,6 +353,7 @@ class PromptFragment : Fragment() {
     private fun formatNumber(n: Int): String = String.format("%,d", n)
 
     override fun onDestroyView() {
+        chatScope.cancel()
         handler.removeCallbacksAndMessages(null)
         super.onDestroyView()
         _binding = null
