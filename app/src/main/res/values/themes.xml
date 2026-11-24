@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BoslaClient" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/bosla_blue</item>
+        <item name="colorPrimaryDark">@color/bosla_navy</item>
+        <item name="colorAccent">@color/bosla_gold</item>
+    </style>
+</resources>
