@@ -5,6 +5,23 @@
 
     <string name="login_title">تسجيل الدخول</string>
     <string name="login_subtitle">سجّل دخولك — وستُنشأ محفظتك تلقائياً</string>
+    <string name="signup_title">إنشاء حساب جديد</string>
+    <string name="signup_subtitle">أنشئ حسابك — وسننشئ محفظتك تلقائياً</string>
+    <string name="name_hint">الاسم الكامل</string>
+    <string name="username_hint">اسم المستخدم</string>
+    <string name="username_helper">مثال: hayyan55</string>
+    <string name="toggle_to_signup">ليس لديك حساب؟ أنشئ حساباً</string>
+    <string name="toggle_to_login">لديك حساب؟ سجّل دخولك</string>
+    <string name="loading_login">جارٍ تسجيل الدخول…</string>
+    <string name="loading_signup">جارٍ إنشاء الحساب…</string>
+    <string name="signup_success">تم إنشاء حسابك — افتح بريدك واضغط رابط التفعيل ثم سجّل دخولك</string>
+    <string name="email_already_registered">هذا البريد مسجّل بالفعل — سجّل دخولك</string>
+    <string name="error_name">اكتب اسمك الكامل</string>
+    <string name="error_username">اسم المستخدم 3 أحرف على الأقل — أحرف وأرقام و _ . - فقط</string>
+    <string name="error_email">اكتب بريداً إلكترونياً صحيحاً</string>
+    <string name="error_password_short">كلمة المرور 6 أحرف على الأقل</string>
+    <string name="error_password_mismatch">كلمتا المرور غير متطابقتين</string>
+    <string name="app_footer">BOSLA AI ACADEMY • boslaacademy.com</string>
     <string name="email_hint">البريد الإلكتروني</string>
     <string name="password_hint">كلمة المرور</string>
     <string name="login_button">دخول</string>

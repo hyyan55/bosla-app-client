@@ -3,6 +3,7 @@ package com.bosla.client
 import android.os.Handler
 import android.os.Looper
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,7 +40,12 @@ object SupabaseClient {
         val pointsComplex: Int
     )
 
-    private val http = OkHttpClient()
+    // مهل أطول: شبكات الجوال البطيئة كانت تقطع الطلب بعد 10 ثوانٍ (خطأ «تعذّر الاتصال»)
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val jsonType = "application/json".toMediaType()
 
@@ -81,12 +87,18 @@ object SupabaseClient {
         }.start()
     }
 
-    fun signUp(email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+    // الاسم واسم المستخدم يُحفظان في بيانات الحساب (user_metadata)
+    // — تقرأهما دالة ensure_wallet عند إنشاء المحفظة (supabase/003_username.sql)
+    fun signUp(email: String, password: String, displayName: String, username: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
         // رابط التفعيل يعيد المستخدم إلى التطبيق (boslaapp://verified)
         // — التحقق من الإيميل مفروض عند إنشاء الحساب
+        val data = JSONObject()
+            .put("display_name", displayName)
+            .put("username", username)
         val body = JSONObject()
             .put("email", email)
             .put("password", password)
+            .put("data", data)
             .put("redirect_to", "boslaapp://verified")
             .put("redirectTo", "boslaapp://verified")
             .toString()
