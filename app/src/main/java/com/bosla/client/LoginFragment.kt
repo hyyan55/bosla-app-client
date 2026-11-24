@@ -1,6 +1,8 @@
 package com.bosla.client
 
+import android.graphics.Color
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +18,10 @@ class LoginFragment : Fragment() {
     // الوضع الحالي: دخول (false) أو إنشاء حساب (true)
     private var isSignUp = false
 
+    // بريد صفحة التأكيد الحالية + مؤقت إعادة الإرسال (60 ثانية)
+    private var verifyEmail = ""
+    private var resendTimer: CountDownTimer? = null
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentLoginBinding.inflate(inflater, container, false)
         return binding.root
@@ -26,6 +32,16 @@ class LoginFragment : Fragment() {
         binding.buttonMain.setOnClickListener { doAuth() }
         binding.textToggleMode.setOnClickListener { setMode(!isSignUp) }
         binding.buttonForgot.setOnClickListener { forgotPassword() }
+        binding.textResendLink.setOnClickListener {
+            val email = binding.editEmail.text.toString().trim()
+            if (Patterns.EMAIL_ADDRESS.matcher(email).matches()) showVerify(email)
+            else binding.layoutEmail.error = getString(R.string.error_email)
+        }
+        binding.buttonResend.setOnClickListener { resendConfirmation() }
+        binding.textBackToLogin.setOnClickListener {
+            showForm()
+            setMode(false)
+        }
         setMode(false)
         // رسالة وصول من رابط التفعيل (boslaapp://verified): تم تفعيل البريد
         (activity as? MainActivity)?.loginNotice?.let { notice ->
@@ -44,10 +60,74 @@ class LoginFragment : Fragment() {
         binding.layoutUsername.visibility = show
         binding.layoutConfirmPassword.visibility = show
         binding.buttonForgot.visibility = if (signUp) View.GONE else View.VISIBLE
+        binding.textResendLink.visibility = if (signUp) View.GONE else View.VISIBLE
         binding.textFormTitle.text = getString(if (signUp) R.string.signup_title else R.string.login_title)
         binding.textFormSubtitle.text = getString(if (signUp) R.string.signup_subtitle else R.string.login_subtitle)
         binding.buttonMain.text = getString(if (signUp) R.string.signup_button else R.string.login_button)
         binding.textToggleMode.text = getString(if (signUp) R.string.toggle_to_login else R.string.toggle_to_signup)
+    }
+
+    // صفحة تأكيد الإيميل: تبقى ظاهرة بعد إنشاء الحساب — لا رجوع تلقائي للدخول
+    private fun showVerify(email: String) {
+        verifyEmail = email
+        binding.cardForm.visibility = View.GONE
+        binding.cardVerify.visibility = View.VISIBLE
+        binding.textVerifyEmail.text = email
+        binding.textResendStatus.visibility = View.GONE
+        binding.buttonResend.isEnabled = true
+        binding.buttonResend.text = getString(R.string.resend_button)
+    }
+
+    private fun showForm() {
+        resendTimer?.cancel()
+        binding.cardVerify.visibility = View.GONE
+        binding.cardForm.visibility = View.VISIBLE
+    }
+
+    private fun resendConfirmation() {
+        if (verifyEmail.isBlank()) return
+        binding.buttonResend.isEnabled = false
+        binding.buttonResend.text = getString(R.string.loading)
+        SupabaseClient.resendConfirmation(verifyEmail,
+            onSuccess = {
+                showResendStatus(getString(R.string.resend_sent), isError = false)
+                startResendCooldown()
+            },
+            onError = { err ->
+                binding.buttonResend.isEnabled = true
+                binding.buttonResend.text = getString(R.string.resend_button)
+                when {
+                    err.contains("over_email_send_rate_limit", ignoreCase = true) ||
+                        err.contains("rate limit", ignoreCase = true) ->
+                        showResendStatus(getString(R.string.resend_rate_limited), isError = true)
+                    err.contains("already confirmed", ignoreCase = true) ->
+                        showResendStatus(getString(R.string.email_already_confirmed), isError = false)
+                    err == "NETWORK" -> showResendStatus(getString(R.string.error_network), isError = true)
+                    else -> showResendStatus(getString(R.string.resend_error), isError = true)
+                }
+            }
+        )
+    }
+
+    private fun showResendStatus(text: String, isError: Boolean) {
+        binding.textResendStatus.text = text
+        binding.textResendStatus.setTextColor(Color.parseColor(if (isError) "#C62828" else "#2E7D32"))
+        binding.textResendStatus.visibility = View.VISIBLE
+    }
+
+    private fun startResendCooldown() {
+        resendTimer?.cancel()
+        binding.buttonResend.isEnabled = false
+        resendTimer = object : CountDownTimer(60000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                binding.buttonResend.text = getString(R.string.resend_wait, millisUntilFinished / 1000)
+            }
+
+            override fun onFinish() {
+                binding.buttonResend.isEnabled = true
+                binding.buttonResend.text = getString(R.string.resend_button)
+            }
+        }.start()
     }
 
     private fun clearFieldErrors() {
@@ -117,18 +197,21 @@ class LoginFragment : Fragment() {
         val onError: (String) -> Unit = { err ->
             setLoading(false)
             when (err) {
-                "CONFIRM_EMAIL" -> {
-                    // الحساب أُنشئ — بقي تفعيل البريد من الرابط
-                    binding.textFormNotice.text = getString(R.string.signup_success)
-                    binding.textFormNotice.visibility = View.VISIBLE
-                    binding.editPassword.text?.clear()
-                    binding.editConfirmPassword.text?.clear()
+                "CONFIRM_EMAIL" -> showVerify(email)
+                "ALREADY_REGISTERED" -> {
                     setMode(false)
+                    showError(getString(R.string.email_already_registered))
                 }
-                "EMAIL_NOT_CONFIRMED" -> showError(getString(R.string.email_not_confirmed_notice))
+                "RATE_LIMITED" -> {
+                    // الحساب قد يكون أُنشئ لكن الإيميل لم يُرسل (حد الساعتين)
+                    showVerify(email)
+                    showResendStatus(getString(R.string.resend_rate_limited), isError = true)
+                }
+                "EMAIL_NOT_CONFIRMED" -> showVerify(email)
                 "NETWORK" -> showError(getString(R.string.error_network))
                 else -> {
                     if (err.contains("already registered", ignoreCase = true)) {
+                        setMode(false)
                         showError(getString(R.string.email_already_registered))
                     } else {
                         showError(getString(if (isSignUp) R.string.signup_error else R.string.login_error))
@@ -175,6 +258,7 @@ class LoginFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        resendTimer?.cancel()
         super.onDestroyView()
         _binding = null
     }

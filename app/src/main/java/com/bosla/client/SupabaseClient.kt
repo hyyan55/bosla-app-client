@@ -105,10 +105,24 @@ object SupabaseClient {
         call(
             "$supabaseUrl/auth/v1/signup", "POST", body, false,
             onSuccess = { text ->
-                val token = JSONObject(text).optString("access_token", "")
-                if (token.isBlank()) onError("CONFIRM_EMAIL") else onSuccess(token)
+                val obj = JSONObject(text)
+                val token = obj.optString("access_token", "")
+                if (token.isNotBlank()) {
+                    onSuccess(token)
+                } else {
+                    // بريد مسجّل ومفعّل من قبل يعيده Supabase بقائمة هويات فارغة
+                    // (بلا خطأ وبلا إيميل جديد) — نميّزه عن الحساب الجديد
+                    val identities = obj.optJSONObject("user")?.optJSONArray("identities")
+                    if (identities != null && identities.length() == 0) onError("ALREADY_REGISTERED")
+                    else onError("CONFIRM_EMAIL")
+                }
             },
-            onError = onError
+            onError = { err ->
+                // حد الإرسال: إيميلان فقط في الساعة بخدمة Supabase المدمجة
+                if (err.contains("over_email_send_rate_limit", ignoreCase = true) ||
+                    err.contains("rate limit", ignoreCase = true)
+                ) onError("RATE_LIMITED") else onError(err)
+            }
         )
     }
 
@@ -231,6 +245,23 @@ object SupabaseClient {
         call(
             "$supabaseUrl/functions/v1/start-build", "POST", body, true,
             onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    // إعادة إرسال رابط التفعيل لحساب أُنشئ ولم يُفعَّل بعد — POST /auth/v1/resend
+    // الرابط يعيد المستخدم إلى التطبيق عبر boslaapp://verified
+    // (يجب إضافة هذا الرابط في Supabase: Authentication ← URL Configuration ← Redirect URLs)
+    fun resendConfirmation(email: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val body = JSONObject()
+            .put("email", email)
+            .put("type", "signup")
+            .put("redirect_to", "boslaapp://verified")
+            .put("redirectTo", "boslaapp://verified")
+            .toString()
+        call(
+            "$supabaseUrl/auth/v1/resend", "POST", body, false,
+            onSuccess = { onSuccess() },
             onError = onError
         )
     }
