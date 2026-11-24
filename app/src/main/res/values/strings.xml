@@ -59,6 +59,7 @@
     <string name="nav_builds">بناءاتي</string>
 
     <string name="prompt_title">صِف التطبيق الذي تريده</string>
+    <string name="prompt_input_hint">اكتب وصف تطبيقك هنا…</string>
     <string name="prompt_hint">مثال: آلة حاسبة بسيطة بأزرار الأرقام والعمليات الأربع…</string>
     <string name="estimate_button">قدّر النقاط</string>
     <string name="build_button">ابنِ التطبيق</string>
@@ -71,6 +72,7 @@
     <string name="not_enough_points">رصيدك لا يكفي — اشحن نقاطاً من المحفظة أولاً</string>
 
     <string name="wallet_title">محفظتي</string>
+    <string name="reason_welcome_gift">هدية ترحيبية</string>
     <string name="wallet_number_label">رقم المحفظة</string>
     <string name="balance_label">رصيدك</string>
     <string name="points_unit">نقطة</string>

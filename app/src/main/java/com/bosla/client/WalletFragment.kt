@@ -1,6 +1,7 @@
 package com.bosla.client
 
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -65,10 +66,14 @@ class WalletFragment : Fragment() {
                 for (entry in entries) {
                     val row = TextView(requireContext())
                     val sign = if (entry.amount >= 0) "+" else ""
-                    val reason = entry.reason ?: entry.type
+                    val reason = when (entry.reason) {
+                        "welcome gift" -> getString(R.string.reason_welcome_gift)
+                        else -> entry.reason ?: entry.type
+                    }
                     val date = entry.createdAt.take(10)
                     row.text = "$date  $sign${entry.amount} ${getString(R.string.points_unit)} — $reason"
                     row.textSize = 16f
+                    row.setTextColor(Color.parseColor("#101D35"))
                     row.setPadding(0, 8, 0, 8)
                     binding.layoutTransactions.addView(row)
                 }

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.BoslaClient" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- وضع فاتح ثابت: التصميم بألوان بوصلة الصريحة (كحلي/أبيض/أزرق/ذهبي)
+         ولا يتبع الوضع الداكن للنظام — وإلا تختفي النصوص الكحلية على الخلفية السوداء -->
+    <style name="Theme.BoslaClient" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/bosla_blue</item>
         <item name="colorPrimaryDark">@color/bosla_navy</item>
+        <item name="colorOnPrimary">@color/white</item>
         <item name="colorAccent">@color/bosla_gold</item>
+        <item name="android:windowBackground">@color/bosla_navy</item>
     </style>
 </resources>

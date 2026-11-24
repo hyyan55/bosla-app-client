@@ -4,6 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="16dp"
     app:cardElevation="2dp">
 
     <LinearLayout
@@ -16,6 +18,7 @@
             android:id="@+id/text_build_prompt"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:textColor="@color/bosla_navy"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -41,7 +44,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/download_apk"
-            android:visibility="gone" />
+            android:textColor="@color/white"
+            android:visibility="gone"
+            app:backgroundTint="@color/bosla_blue" />
 
     </LinearLayout>
 
