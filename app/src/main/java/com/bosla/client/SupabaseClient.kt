@@ -6,6 +6,7 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -24,6 +25,17 @@ object SupabaseClient {
     var anonKey: String = "sb_publishable_KqGzygcUNUY-Qtcch_iduQ_Fz-jjSvY"
 
     var accessToken: String? = null
+
+    // توكن تحديث الجلسة: توكن الدخول ينتهي بعد ساعة، وبهذا التوكن
+    // نجدّد الجلسة تلقائياً (دالة refreshSession) بدل خروج المستخدم.
+    // يُحفظ مع توكن الدخول في SharedPreferences (MainActivity).
+    var refreshToken: String? = null
+
+    // يُضبط من MainActivity عند الإنشاء: يُستدعى بعد كل تحديث ناجح
+    // للجلسة ليُحفظ التوكنان الجديدان في SharedPreferences
+    // (نفس saveTokens()). إن لم يُضبط لسبب ما، يبقى التحديث في
+    // الذاكرة لهذه الجلسة فقط وتعمل إعادة المحاولة كما هي.
+    var onTokensChanged: (() -> Unit)? = null
 
     data class Wallet(val walletNumber: String, val balance: Int, val displayName: String?)
     data class BuildItem(
@@ -64,6 +76,12 @@ object SupabaseClient {
         mainHandler.post { action() }
     }
 
+    // كل طلبات REST تمر من هنا (بما فيها طلبات المحفظة والبناءات و
+    // start-build). إن رفض Supabase التوكن (401 — توكن الدخول يعيش
+    // ساعة) وكان الطلب بتوكن الدخول، نجدّد الجلسة مرة واحدة بتوكن
+    // التحديث ونعيد نفس الطلب مرة واحدة فقط بالتوكن الجديد؛ أي فشل
+    // في التحديث أو في إعادة المحاولة يرجع خطأ 401 الأصلي كما كان.
+    // غير 401 لا يُعاد أبداً، ولا إعادة محاولة ثانية لأي طلب.
     private fun call(
         url: String,
         method: String,
@@ -75,22 +93,48 @@ object SupabaseClient {
     ) {
         Thread {
             try {
-                val body = bodyJson?.toRequestBody(jsonType)
-                val reqBuilder = Request.Builder().url(url)
-                reqBuilder.addHeader("apikey", anonKey)
-                val token = bearer ?: if (auth) accessToken else null
-                token?.let { reqBuilder.addHeader("Authorization", "Bearer $it") }
-                when (method) {
-                    "POST" -> reqBuilder.post(body ?: "".toRequestBody(jsonType))
-                    "GET" -> reqBuilder.get()
-                    else -> reqBuilder.method(method, body)
+                // بناء الطلب من التوكن الحالي في كل مرة — ليعيد بناء
+                // نفسه بالتوكن الجديد بعد أي تحديث للجلسة.
+                fun buildRequest(): Request {
+                    val body = bodyJson?.toRequestBody(jsonType)
+                    val reqBuilder = Request.Builder().url(url)
+                    reqBuilder.addHeader("apikey", anonKey)
+                    val token = bearer ?: if (auth) accessToken else null
+                    token?.let { reqBuilder.addHeader("Authorization", "Bearer $it") }
+                    when (method) {
+                        "POST" -> reqBuilder.post(body ?: "".toRequestBody(jsonType))
+                        "GET" -> reqBuilder.get()
+                        else -> reqBuilder.method(method, body)
+                    }
+                    return reqBuilder.build()
                 }
-                val response = http.newCall(reqBuilder.build()).execute()
+                val response = http.newCall(buildRequest()).execute()
                 val text = response.body?.string().orEmpty()
-                if (response.isSuccessful) {
+                val code = response.code
+                val ok = response.isSuccessful
+                response.close()
+                if (ok) {
                     runOnMain { onSuccess(text) }
+                } else if (auth && bearer == null && code == 401) {
+                    val originalError = text.ifBlank { "HTTP $code" }
+                    // refreshSession لا ترمي استثناءات أبداً (ترجع Boolean)
+                    val refreshed = runBlocking { refreshSession() }
+                    if (refreshed) {
+                        onTokensChanged?.invoke()
+                        val retryResponse = http.newCall(buildRequest()).execute()
+                        val retryText = retryResponse.body?.string().orEmpty()
+                        val retryOk = retryResponse.isSuccessful
+                        retryResponse.close()
+                        if (retryOk) {
+                            runOnMain { onSuccess(retryText) }
+                        } else {
+                            runOnMain { onError(originalError) }
+                        }
+                    } else {
+                        runOnMain { onError(originalError) }
+                    }
                 } else {
-                    runOnMain { onError(text.ifBlank { "HTTP ${response.code}" }) }
+                    runOnMain { onError(text.ifBlank { "HTTP $code" }) }
                 }
             } catch (e: Exception) {
                 runOnMain { onError("NETWORK") }
@@ -119,6 +163,9 @@ object SupabaseClient {
                 val obj = JSONObject(text)
                 val token = obj.optString("access_token", "")
                 if (token.isNotBlank()) {
+                    // توكن التحديث يأتي في نفس الرد — نحفظه ليجدّد الجلسة لاحقاً
+                    val rt = obj.optString("refresh_token", "")
+                    refreshToken = if (rt.isBlank()) null else rt
                     onSuccess(token)
                 } else {
                     // بريد مسجّل ومفعّل من قبل يعيده Supabase بقائمة هويات فارغة
@@ -142,8 +189,14 @@ object SupabaseClient {
         call(
             "$supabaseUrl/auth/v1/token?grant_type=password", "POST", body, false,
             onSuccess = { text ->
-                val token = JSONObject(text).optString("access_token", "")
-                if (token.isBlank()) onError("LOGIN_FAILED") else onSuccess(token)
+                val obj = JSONObject(text)
+                val token = obj.optString("access_token", "")
+                if (token.isBlank()) onError("LOGIN_FAILED") else {
+                    // توكن التحديث يأتي في نفس الرد — نحفظه ليجدّد الجلسة لاحقاً
+                    val rt = obj.optString("refresh_token", "")
+                    refreshToken = if (rt.isBlank()) null else rt
+                    onSuccess(token)
+                }
             },
             onError = { err ->
                 // الدخول مرفوض قبل تفعيل الإيميل — رسالة واضحة بدل خطأ عام
@@ -312,6 +365,37 @@ object SupabaseClient {
                 ChatResult(reply, estimate)
             }
         }
+
+    // تحديث الجلسة: توكن الدخول ينتهي بعد ساعة، فيُجدَّد بتوكن التحديث
+    // عبر POST /auth/v1/token?grant_type=refresh_token.
+    // عند النجاح يُستبدل توكن الدخول بالجديد، وتوكن التحديث بالجديد أيضاً
+    // (Supabase يدوّره عند كل تحديث)؛ وعند أي فشل ترجع false وتبقى
+    // القيم القديمة كما هي بلا تغيير. لا ترمي استثناءات أبداً.
+    suspend fun refreshSession(): Boolean = withContext(Dispatchers.IO) {
+        val rt = refreshToken ?: return@withContext false
+        try {
+            val bodyJson = JSONObject().put("refresh_token", rt).toString()
+            val request = Request.Builder()
+                .url("$supabaseUrl/auth/v1/token?grant_type=refresh_token")
+                .addHeader("apikey", anonKey)
+                .post(bodyJson.toRequestBody(jsonType))
+                .build()
+            val response = http.newCall(request).execute()
+            val text = response.body?.string().orEmpty()
+            val ok = response.isSuccessful
+            response.close()
+            if (!ok) return@withContext false
+            val obj = JSONObject(text)
+            val newAccess = obj.optString("access_token", "")
+            if (newAccess.isBlank()) return@withContext false
+            accessToken = newAccess
+            val newRefresh = obj.optString("refresh_token", "")
+            if (newRefresh.isNotBlank()) refreshToken = newRefresh
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     // إعادة إرسال رابط التفعيل لحساب أُنشئ ولم يُفعَّل بعد — POST /auth/v1/resend
     // الرابط يعيد المستخدم إلى التطبيق عبر boslaapp://verified

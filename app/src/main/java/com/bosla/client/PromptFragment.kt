@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.bosla.client.databinding.FragmentPromptBinding
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -138,7 +139,7 @@ class PromptFragment : Fragment() {
         trimHistory()
         chatScope.launch {
             try {
-                val result = SupabaseClient.chat(text, historySnapshot)
+                val result = tryChatOnce(text, historySnapshot)
                 stopTyping()
                 addBotMessage(buildBotText(result))
                 chatHistory.add("bot" to result.reply)
@@ -159,10 +160,44 @@ class PromptFragment : Fragment() {
                 throw e
             } catch (e: Exception) {
                 stopTyping()
-                addBotMessage(getString(R.string.chat_ai_unavailable))
+                // 401 حتى بعد محاولة التحديث = الجلسة انتهت فعلاً —
+                // نطلب من المستخدم دخولاً جديداً بدل رسالة الخطأ العامة
+                val resId = if (e is IOException && e.message == "HTTP_401") {
+                    R.string.chat_session_expired
+                } else {
+                    R.string.chat_ai_unavailable
+                }
+                addBotMessage(getString(resId))
                 isThinking = false
                 scrollToBottom()
             }
+        }
+    }
+
+    /**
+     * محاولة المحادثة مع تحديث تلقائي للجلسة: إذا رفض Supabase التوكن
+     * (401 — توكن الدخول ينتهي بعد ساعة)، نجدّد الجلسة بتوكن التحديث
+     * ونعيد المحاولة مرة واحدة فقط، ثم نحفظ التوكنين الجديدين.
+     * أي فشل آخر يُرمى كما هو ليعرض المرسل رسالته.
+     */
+    private suspend fun tryChatOnce(text: String, historySnapshot: List<Pair<String, String>>): SupabaseClient.ChatResult {
+        try {
+            return SupabaseClient.chat(text, historySnapshot)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e is IOException && e.message == "HTTP_401") {
+                val refreshed = try {
+                    SupabaseClient.refreshSession()
+                } catch (_: Exception) {
+                    false
+                }
+                if (refreshed) {
+                    (activity as? MainActivity)?.saveTokens()
+                    return SupabaseClient.chat(text, historySnapshot)
+                }
+            }
+            throw e
         }
     }
 

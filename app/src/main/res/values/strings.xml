@@ -69,6 +69,7 @@
     <string name="chat_thinking_1">يحلل وصفك</string>
     <string name="chat_thinking_2">يقدّر النقاط والسعر</string>
     <string name="chat_ai_unavailable">تعذّر الوصول للذكاء الاصطناعي حالياً — تأكد من الاتصال بالإنترنت وأن دالة المحادثة منشورة في Supabase، ثم حاول مجدداً.</string>
+    <string name="chat_session_expired">انتهت جلستك — سجّل دخولك من جديد ثم حاول.</string>
     <string name="chat_features_title">أهم المزايا:</string>
     <string name="chat_reasoning">السبب: %1$s</string>
     <string name="suggest_1">آلة حاسبة بسيطة</string>

@@ -24,8 +24,12 @@ class MainActivity : AppCompatActivity() {
             showLogin()
         } else {
             SupabaseClient.accessToken = token
+            SupabaseClient.refreshToken = prefs.getString("refresh_token", null)
             showMain()
         }
+        // بعد كل تحديث ناجح للجلسة من أي طلب (محفظة/بناءات/بناء)،
+        // تُحفظ التوكنات الجديدة في SharedPreferences.
+        SupabaseClient.onTokensChanged = { saveTokens() }
         handleDeepLink(intent)
 
         binding.bottomNav.setOnItemSelectedListener { item ->
@@ -48,16 +52,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onLoggedIn(token: String) {
-        getSharedPreferences("bosla", Context.MODE_PRIVATE).edit()
-            .putString("access_token", token).apply()
         SupabaseClient.accessToken = token
+        saveTokens()
         showMain()
     }
 
+    // حفظ التوكنين الحاليين (دخول + تحديث) في SharedPreferences —
+    // يُستدعى بعد الدخول وبعد كل تحديث ناجح للجلسة. القيمة الفارغة
+    // تحذف مفتاحها بدل حفظ فراغ.
+    fun saveTokens() {
+        val edit = getSharedPreferences("bosla", Context.MODE_PRIVATE).edit()
+        val at = SupabaseClient.accessToken
+        val rt = SupabaseClient.refreshToken
+        if (at.isNullOrBlank()) edit.remove("access_token") else edit.putString("access_token", at)
+        if (rt.isNullOrBlank()) edit.remove("refresh_token") else edit.putString("refresh_token", rt)
+        edit.apply()
+    }
+
     fun logout() {
-        getSharedPreferences("bosla", Context.MODE_PRIVATE).edit()
-            .remove("access_token").apply()
         SupabaseClient.accessToken = null
+        SupabaseClient.refreshToken = null
+        saveTokens()
         showLogin()
     }
 
@@ -87,6 +102,15 @@ class MainActivity : AppCompatActivity() {
                     .firstOrNull { it.startsWith("access_token=") }
                     ?.substringAfter("=")
                 if (token.isNullOrBlank()) return
+                // رابط الاسترداد يحمل توكن تحديث أيضاً — نحفظه ليجدّد
+                // الجلسة لاحقاً (توكن الدخول هنا للاسترداد فقط ولا يُحفظ)
+                val refresh = fragment.split("&")
+                    .firstOrNull { it.startsWith("refresh_token=") }
+                    ?.substringAfter("=")
+                if (!refresh.isNullOrBlank()) {
+                    SupabaseClient.refreshToken = refresh
+                    saveTokens()
+                }
                 val resetFragment = ResetPasswordFragment()
                 resetFragment.arguments = Bundle().apply { putString("recovery_token", token) }
                 binding.bottomNav.visibility = View.GONE
