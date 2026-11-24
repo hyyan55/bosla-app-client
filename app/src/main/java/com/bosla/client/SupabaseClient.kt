@@ -147,17 +147,17 @@ object SupabaseClient {
             "$supabaseUrl/rest/v1/settings?select=key,value", "GET", null, false,
             onSuccess = { text ->
                 val arr = JSONArray(text)
-                var price = 100
-                var simple = 10
-                var medium = 25
-                var complex = 50
+                var price = 50
+                var simple = 100
+                var medium = 400
+                var complex = 800
                 for (i in 0 until arr.length()) {
                     val row = arr.getJSONObject(i)
                     when (row.optString("key")) {
-                        "points_price_sdg" -> price = row.optString("value", "100").toIntOrNull() ?: 100
-                        "points_simple" -> simple = row.optString("value", "10").toIntOrNull() ?: 10
-                        "points_medium" -> medium = row.optString("value", "25").toIntOrNull() ?: 25
-                        "points_complex" -> complex = row.optString("value", "50").toIntOrNull() ?: 50
+                        "points_price_sdg" -> price = row.optString("value", "50").toIntOrNull() ?: 50
+                        "points_simple" -> simple = row.optString("value", "100").toIntOrNull() ?: 100
+                        "points_medium" -> medium = row.optString("value", "400").toIntOrNull() ?: 400
+                        "points_complex" -> complex = row.optString("value", "800").toIntOrNull() ?: 800
                     }
                 }
                 onSuccess(Settings(price, simple, medium, complex))

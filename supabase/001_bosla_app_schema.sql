@@ -49,10 +49,10 @@ create table if not exists public.settings (
   value text not null
 );
 insert into public.settings (key, value) values
-  ('points_price_sdg', '100'),
-  ('points_simple', '10'),
-  ('points_medium', '25'),
-  ('points_complex', '50')
+  ('points_price_sdg', '50'),
+  ('points_simple', '100'),
+  ('points_medium', '400'),
+  ('points_complex', '800')
 on conflict (key) do nothing;
 
 -- 5) الأدمن: البريد المسموح له بدخول لوحة التحكم

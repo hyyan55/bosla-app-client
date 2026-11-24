@@ -19,7 +19,7 @@ class WalletFragment : Fragment() {
     private val binding get() = _binding!!
 
     private var wallet: SupabaseClient.Wallet? = null
-    private var settings = SupabaseClient.Settings(100, 10, 25, 50)
+    private var settings = SupabaseClient.Settings(50, 100, 400, 800)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWalletBinding.inflate(inflater, container, false)

@@ -1,113 +1,239 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- تبويب البرومبت — نفس لغة شاشة الدخول: خلفية كحلية + بطاقة بيضاء -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- تبويب البوت — وكيل ذكاء اصطناعي حي: أفاتار + مؤشر كتابة متحرك + اقتراحات + بطاقة تقدير -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bosla_navy"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
+    <!-- رأس الوكيل: الشعار + الاسم + نقطة الاتصال وسعر النقطة + الرصيد -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="16dp">
 
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
+        <ImageView
+            android:id="@+id/image_bot_avatar"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_avatar_frame"
+            android:contentDescription="@string/chat_title"
+            android:padding="2dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/bosla_logo_transparent" />
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/white"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="8dp">
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/chat_title"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="24dp">
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/bg_online_dot" />
 
                 <TextView
-                    android:id="@+id/text_title"
+                    android:id="@+id/text_price_info"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/prompt_title"
-                    android:textColor="@color/bosla_navy"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="@string/prompt_hint"
-                    android:textColor="#616161"
-                    android:textSize="14sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/layout_prompt"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:hint="@string/prompt_input_hint">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_prompt"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="top|start"
-                        android:importantForAutofill="no"
-                        android:inputType="textMultiLine"
-                        android:maxLines="8"
-                        android:minLines="5" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/button_estimate"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/estimate_button"
-                    android:textColor="@color/bosla_blue"
-                    android:textSize="18sp"
-                    app:cornerRadius="26dp"
-                    app:strokeColor="@color/bosla_blue" />
-
-                <TextView
-                    android:id="@+id/text_estimate"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center"
-                    android:textColor="@color/bosla_navy"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/button_build"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/build_button"
-                    android:textColor="@color/white"
-                    android:textSize="18sp"
-                    app:backgroundTint="@color/bosla_blue"
-                    app:cornerRadius="28dp" />
-
-                <TextView
-                    android:id="@+id/text_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center"
-                    android:textColor="#616161"
-                    android:textSize="16sp" />
+                    android:layout_marginStart="6dp"
+                    android:text="@string/chat_online"
+                    android:textColor="#CFD8DC"
+                    android:textSize="13sp" />
 
             </LinearLayout>
+
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#1E2F4A"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/text_balance_chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp"
+                android:text="@string/chat_balance_loading"
+                android:textColor="@color/bosla_gold"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
         </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
-</ScrollView>
+
+    <!-- منطقة الرسائل -->
+    <ScrollView
+        android:id="@+id/scroll_chat"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/layout_chat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp" />
+
+    </ScrollView>
+
+    <!-- اقتراحات سريعة — تختفي بعد أول رسالة -->
+    <LinearLayout
+        android:id="@+id/layout_suggestions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_suggest_1"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/suggest_1"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            app:cornerRadius="18dp"
+            app:strokeColor="@color/white" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_suggest_2"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/suggest_2"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            app:cornerRadius="18dp"
+            app:strokeColor="@color/white" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_suggest_3"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/suggest_3"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            app:cornerRadius="18dp"
+            app:strokeColor="@color/white" />
+
+    </LinearLayout>
+
+    <!-- التقدير الفوري أثناء الكتابة -->
+    <TextView
+        android:id="@+id/text_live_estimate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_live_pill"
+        android:gravity="center"
+        android:padding="10dp"
+        android:textColor="@color/bosla_gold"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <!-- زر البناء — يظهر بعد رد البوت بالتقدير -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_build"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="@string/build_button"
+        android:textColor="@color/white"
+        android:textSize="18sp"
+        android:visibility="gone"
+        app:backgroundTint="@color/bosla_blue"
+        app:cornerRadius="28dp" />
+
+    <!-- شريط الإدخال -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <EditText
+            android:id="@+id/edit_prompt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/bg_input_rounded"
+            android:hint="@string/chat_hint"
+            android:imeOptions="actionSend"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine"
+            android:maxLines="4"
+            android:padding="14dp"
+            android:textColor="@color/bosla_navy"
+            android:textColorHint="#9E9E9E"
+            android:textSize="16sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_send"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@string/chat_send"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:text=""
+            app:backgroundTint="@color/bosla_blue"
+            app:cornerRadius="26dp"
+            app:icon="@drawable/ic_send"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="24dp"
+            app:iconTint="@color/white" />
+
+    </LinearLayout>
+
+</LinearLayout>

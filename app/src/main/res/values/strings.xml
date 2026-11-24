@@ -54,9 +54,31 @@
     <string name="back_to_login">رجوع لتسجيل الدخول</string>
     <string name="email_already_confirmed">بريدك مفعّل بالفعل — سجّل دخولك</string>
 
-    <string name="nav_prompt">البرومبت</string>
+    <string name="nav_prompt">البوت</string>
     <string name="nav_wallet">المحفظة</string>
     <string name="nav_builds">بناءاتي</string>
+
+    <string name="chat_title">بوت بوصلة</string>
+    <string name="chat_online">متصل الآن</string>
+    <string name="chat_online_price">متصل الآن • سعر النقطة: %1$d جنيه</string>
+    <string name="chat_balance_chip">رصيدك: %1$d نقطة</string>
+    <string name="chat_balance_loading">رصيدك: …</string>
+    <string name="chat_hint">اكتب وصف التطبيق…</string>
+    <string name="chat_send">إرسال</string>
+    <string name="chat_greeting">مرحباً! أنا بوت بوصلة. صِف لي التطبيق الذي تريده، وسأقدّر لك النقاط والسعر فوراً.\n\nسعر النقطة: %1$d جنيه سوداني.</string>
+    <string name="chat_thinking_1">يفهم وصفك</string>
+    <string name="chat_thinking_2">يقدّر النقاط والسعر</string>
+    <string name="suggest_1">آلة حاسبة بسيطة</string>
+    <string name="suggest_2">متجر إلكتروني صغير</string>
+    <string name="suggest_3">تطبيق ملاحظات</string>
+    <string name="estimate_card_title">تقدير البوت</string>
+    <string name="estimate_card_points_label">النقاط</string>
+    <string name="estimate_card_price_label">السعر الإجمالي</string>
+    <string name="chat_estimate_points">%1$d نقطة</string>
+    <string name="chat_estimate_price">%1$s جنيه سوداني</string>
+    <string name="chat_estimate">التقدير: %1$s\nالنقاط: %2$d نقطة\nالسعر: %3$s جنيه سوداني</string>
+    <string name="chat_live_estimate">التقدير الآن: %1$s — %2$d نقطة — %3$s جنيه</string>
+    <string name="chat_need_points">رصيدك %1$d نقطة — تحتاج %2$d نقطة لبناء هذا التطبيق. اشحن رصيدك من تبويب المحفظة.</string>
 
     <string name="prompt_title">صِف التطبيق الذي تريده</string>
     <string name="prompt_input_hint">اكتب وصف تطبيقك هنا…</string>
